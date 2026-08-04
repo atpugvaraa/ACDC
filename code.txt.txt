@@ -1,0 +1,56 @@
+clc;
+clear all;
+close all;
+
+Fs = 1e6;
+fb = 70e3;
+A = 10;
+T = 0.5;
+
+t = (0:1/Fs:T-1/Fs).'; % Note the transpose operator ' to make it a column vector
+tx_signal = A * exp(1j * 2 * pi * fb * t); 
+rx_direct = tx_signal;
+
+tx = sdrtx("Pluto");
+tx.CenterFrequency = 2.45e9;
+tx.BasebandSampleRate = Fs;
+tx.Gain = 0;
+
+rx = sdrrx("Pluto");
+rx.CenterFrequency = tx.CenterFrequency;
+rx.BasebandSampleRate = Fs;
+rx.SamplesPerFrame = length(tx_signal);
+rx.GainSource = "AGC Slow Attack";
+rx.OutputDataType = "double";
+
+tx(tx_signal);
+rx_signal = rx();
+
+rx_signal = rx_signal * (rms(tx_signal) / rms(rx_signal));
+phi = angle(mean(rx_signal .* conj(tx_signal)));
+rx_signal = rx_signal * exp(-1j * phi);
+
+error_signal = tx_signal - rx_signal;
+
+Nplot = round(1e-3 * Fs);
+t1 = t(1:Nplot);
+
+figure
+subplot(4,1,1)
+plot(t1 * 1e3, real(tx_signal(1:Nplot)))
+title('TS(70khz, 1ms)')
+
+subplot(4,1,2)
+plot(t1 * 1e3, real(rx_signal(1:Nplot)))
+title('TS(70khz, 1ms)')
+
+subplot(4,1,3)
+plot(t1 * 1e3, real(rx_direct(1:Nplot)))
+title('TS(70khz, 1ms)')
+
+subplot(4,1,4)
+plot(t1 * 1e3, real(error_signal(1:Nplot)))
+hold on
+plot(t1 * 1e3, real(rx_direct(1:Nplot) - tx_signal(1:Nplot)))
+title('TS(70khz, 1ms)')
+grid on
